@@ -1,4 +1,4 @@
-import { chmodSync, existsSync } from 'node:fs';
+import { chmodSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   createProfileStore,
@@ -19,6 +19,24 @@ export interface InitProfileInput {
   network: InitNetwork;
   apiKey: string;
   logLevel?: ProfileConfig['logLevel'];
+}
+
+export function checkProfilesFilePermissions(configDir: string = getConfigDir()): {
+  ok: boolean;
+  message: string;
+} {
+  const profilesPath = join(configDir, 'profiles.json');
+  if (!existsSync(profilesPath)) {
+    return { ok: true, message: 'profiles.json not present (no profiles configured)' };
+  }
+  const mode = statSync(profilesPath).mode & 0o777;
+  if ((mode & 0o077) !== 0) {
+    return {
+      ok: false,
+      message: `profiles.json permissions are ${mode.toString(8)} (expected 600)`,
+    };
+  }
+  return { ok: true, message: `profiles.json permissions are ${mode.toString(8)}` };
 }
 
 export function normalizeApiUrl(value: string): string {

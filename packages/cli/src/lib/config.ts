@@ -17,6 +17,18 @@ export function printCliDiagnostics(): string {
 }
 
 /**
+ * Returns the raw CLI config used by the `doctor` command to check
+ * configured API and Horizon URLs without triggering a full validation throw.
+ */
+export function getDoctorTargets(): { apiUrl?: string; horizonUrl?: string } {
+  const env = process.env;
+  return {
+    apiUrl: env.STELLAR_ALERTS_API_URL,
+    horizonUrl: env.STELLAR_HORIZON_URL,
+  };
+}
+
+/**
  * Resolves the effective API URL and key for a CLI invocation.
  *
  * Precedence (highest → lowest):
