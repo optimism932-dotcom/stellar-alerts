@@ -6,7 +6,12 @@ export interface StellarNetworkConfig {
   profile: StellarNetworkProfile;
   horizonEndpoints: readonly string[];
   sorobanRpcUrl: string;
+  sorobanRpcEndpoints?: readonly string[];
   networkPassphrase: string;
+}
+
+function splitUrls(value: string): string[] {
+  return Array.from(new Set(value.split(',').map((url) => url.trim()).filter(Boolean)));
 }
 
 const TESTNET_HORIZON_ENDPOINTS = [
@@ -71,7 +76,9 @@ export function resolveStellarNetworkProfile(
   input: NodeJS.ProcessEnv = process.env,
 ): StellarNetworkConfig {
   const profile = (input.STELLAR_NETWORK_PROFILE?.trim().toLowerCase() || 'testnet') as StellarNetworkProfile;
-  if (profile === 'testnet' || profile === 'mainnet') return BUILTIN_PROFILES[profile];
+  if (profile === 'testnet' || profile === 'mainnet') {
+    return BUILTIN_PROFILES[profile];
+  }
   if (profile !== 'custom') {
     throw new Error('STELLAR_NETWORK_PROFILE must be one of: testnet, mainnet, custom');
   }
@@ -91,6 +98,14 @@ export function resolveStellarNetworkProfile(
     'STELLAR_CUSTOM_SOROBAN_RPC_URL',
     readRequired('STELLAR_CUSTOM_SOROBAN_RPC_URL', input.STELLAR_CUSTOM_SOROBAN_RPC_URL || input.SOROBAN_RPC_URL),
   );
+  const configuredSorobanRpcUrls = input.STELLAR_CUSTOM_SOROBAN_RPC_URLS ||
+    [input.SOROBAN_RPC_URL_NODE2, input.SOROBAN_RPC_URL_NODE3].filter(Boolean).join(',');
+  const sorobanRpcEndpoints = [
+    sorobanRpcUrl,
+    ...(configuredSorobanRpcUrls
+      ? configuredSorobanRpcUrls.split(',').map((url) => validateEndpoint('STELLAR_CUSTOM_SOROBAN_RPC_URLS', url.trim()))
+      : []),
+  ];
   const networkPassphrase = readRequired(
     'STELLAR_CUSTOM_NETWORK_PASSPHRASE',
     input.STELLAR_CUSTOM_NETWORK_PASSPHRASE || input.STELLAR_NETWORK_PASSPHRASE,
@@ -105,7 +120,7 @@ export function resolveStellarNetworkProfile(
   horizonEndpoints.forEach((url) => validateAllowedHost('STELLAR_CUSTOM_HORIZON_URL', url, allowedHosts));
   validateAllowedHost('STELLAR_CUSTOM_SOROBAN_RPC_URL', sorobanRpcUrl, allowedHosts);
 
-  return { profile, horizonEndpoints, sorobanRpcUrl, networkPassphrase };
+  return { profile, horizonEndpoints, sorobanRpcUrl, sorobanRpcEndpoints, networkPassphrase };
 }
 
 export const stellarNetwork = resolveStellarNetworkProfile();

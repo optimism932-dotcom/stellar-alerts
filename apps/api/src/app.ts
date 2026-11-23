@@ -39,6 +39,8 @@ import metricsPlugin from "./plugins/metrics";
 
 import degradedModePlugin from "./plugins/degraded-mode";
 import { AppError } from "./lib/errors";
+import { abiRegistryRoutes } from "./modules/soroban/abi-registry.routes";
+import { AdaptiveLoadShedder, loadShedderMiddleware } from "./middleware/load-shedder.middleware";
 
 export { openApiComponentSchemas, openApiOptions } from "./openapi.config";
 
@@ -160,6 +162,7 @@ export const buildApp = async () => {
   // than scoped to a plugin encapsulation boundary.
   await registerCorrelation(app);
   await registerSecurityHeaders(app);
+  app.addHook('onRequest', loadShedderMiddleware(new AdaptiveLoadShedder()));
 
   await app.register(rateLimit, {
     global: true,
@@ -251,6 +254,7 @@ export const buildApp = async () => {
   app.register(adminRoutes);
   app.register(auditRoutes);
   app.register(anchorRoutes);
+  app.register(abiRegistryRoutes);
 
   return app;
 };

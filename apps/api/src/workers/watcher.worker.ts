@@ -221,7 +221,7 @@ export async function processPaymentRecord(
       span.setAttribute('payment.fromMonitored', monitoredAddresses.has(fromAddress));
 
       const pagingToken = getHorizonPagingToken(record);
-      const existing = await prisma.payment.findUnique({ where: { txHash } });
+      const existing = await prisma.payment.findFirst({ where: { txHash, walletId: wallet.id } });
       let payment: { id: string } | null = existing;
       let isNewPayment = false;
       let shouldSendAlert = true;
@@ -290,7 +290,7 @@ export async function processPaymentRecord(
             }],
             skipDuplicates: true,
           });
-          const persistedPayment = await tx.payment.findUnique({ where: { txHash } });
+          const persistedPayment = await tx.payment.findFirst({ where: { txHash, walletId: wallet.id } });
 
           if (!persistedPayment) {
             throw new Error(`Payment ${txHash} was not available after its transactional insert`);

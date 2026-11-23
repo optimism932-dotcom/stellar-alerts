@@ -1046,3 +1046,14 @@ model ContractWasmAudit {
   @@index([lastCheckedAt])
 }
 
+model ContractAbiRegistry {
+  contractId  String   @id
+  wasmHash    String
+  abi         Json
+  extractedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([wasmHash])
+  @@index([extractedAt])
+}
+

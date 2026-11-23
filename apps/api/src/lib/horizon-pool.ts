@@ -28,6 +28,7 @@ export interface HorizonNodeStats {
   lastCheckedAt: number;
   consecutiveFailures: number;
   lastError: string | null;
+  ledgerHash: string | null;
 }
 
 export interface HorizonPoolOptions {
@@ -35,6 +36,7 @@ export interface HorizonPoolOptions {
   probeIntervalMs?: number;
   maxConsecutiveFailures?: number;
   requestTimeoutMs?: number;
+  maxLagLedgers?: number;
 }
 
 export class HorizonPool {
@@ -45,6 +47,7 @@ export class HorizonPool {
   private readonly probeIntervalMs: number;
   private readonly maxConsecutiveFailures: number;
   private readonly requestTimeoutMs: number;
+  private readonly maxLagLedgers: number;
 
   constructor(options: HorizonPoolOptions = {}) {
     this.endpoints = options.endpoints && options.endpoints.length > 0
@@ -54,6 +57,7 @@ export class HorizonPool {
     this.probeIntervalMs = options.probeIntervalMs ?? 30_000;
     this.maxConsecutiveFailures = options.maxConsecutiveFailures ?? 2;
     this.requestTimeoutMs = options.requestTimeoutMs ?? env.HORIZON_REQUEST_TIMEOUT_MS;
+    this.maxLagLedgers = options.maxLagLedgers ?? 3;
 
     for (const url of this.endpoints) {
       this.nodeStats.set(url, {
@@ -61,6 +65,7 @@ export class HorizonPool {
         healthy: true,
         latencyMs: 0,
         ledgerHeight: 0,
+        ledgerHash: null,
         lastCheckedAt: 0,
         consecutiveFailures: 0,
         lastError: null,
@@ -90,6 +95,7 @@ export class HorizonPool {
       lastCheckedAt: 0,
       consecutiveFailures: 0,
       lastError: null,
+      ledgerHash: null,
     };
 
     const server = this.getServer(url);
@@ -100,10 +106,12 @@ export class HorizonPool {
       const latencyMs = Date.now() - start;
       const ledgerRecord = response.records?.[0];
       const ledgerHeight = ledgerRecord?.sequence ?? 0;
+      const ledgerHash = (ledgerRecord as any)?.hash ?? null;
 
       stats.healthy = true;
       stats.latencyMs = latencyMs;
       stats.ledgerHeight = ledgerHeight;
+      (stats as HorizonNodeStats).ledgerHash = ledgerHash;
       stats.consecutiveFailures = 0;
       stats.lastError = null;
       stats.lastCheckedAt = Date.now();
@@ -136,6 +144,24 @@ export class HorizonPool {
    */
   public async probeAll(): Promise<HorizonNodeStats[]> {
     const results = await Promise.all(this.endpoints.map((url) => this.probeNode(url)));
+    const observed = results.filter((stats) => stats.ledgerHeight > 0);
+    if (observed.length > 0) {
+      const highest = Math.max(...observed.map((stats) => stats.ledgerHeight));
+      for (const stats of observed) {
+        if (highest - stats.ledgerHeight > this.maxLagLedgers) stats.healthy = false;
+      }
+      const hashes = new Map<string, string[]>();
+      for (const stats of observed) {
+        if (!stats.ledgerHash) continue;
+        hashes.set(stats.ledgerHash, [...(hashes.get(stats.ledgerHash) ?? []), stats.url]);
+      }
+      if (hashes.size > 1) {
+        const majority = [...hashes.entries()].sort((a, b) => b[1].length - a[1].length)[0][1];
+        for (const stats of observed) {
+          if (stats.ledgerHash && !majority.includes(stats.url)) stats.healthy = false;
+        }
+      }
+    }
     return results;
   }
 
