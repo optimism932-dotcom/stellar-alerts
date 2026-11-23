@@ -1,5 +1,29 @@
 import { z } from "zod";
 
+/**
+ * Environment keys whose values must never be printed in plain text.
+ * Used by the startup configuration summary.
+ */
+export const SECRET_ENV_KEYS: readonly string[] = [
+  "JWT_SECRET",
+  "DATABASE_URL",
+  "READ_REPLICA_URL",
+  "REDIS_URL",
+  "REDIS_PASSWORD",
+  "REDIS_SENTINEL_PASSWORD",
+  "TELEGRAM_BOT_TOKEN",
+  "OPSGENIE_API_KEY",
+  "PAGERDUTY_ROUTING_KEY",
+  "SLACK_SIGNING_SECRET",
+  "SLACK_BOT_TOKEN",
+  "MASTER_ENCRYPTION_KEY",
+  "MASTER_ENCRYPTION_OLD_KEYS",
+  "SOROBAN_RENT_WORKER_SECRET",
+  "METRICS_AUTH_TOKEN",
+  "ARCHIVE_SECRET_ACCESS_KEY",
+  "ARCHIVE_ACCESS_KEY_ID",
+];
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).optional().default("development"),
   DATABASE_URL: z.string().url(),
